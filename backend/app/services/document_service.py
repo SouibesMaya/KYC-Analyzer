@@ -3,6 +3,7 @@ from uuid import uuid4
 
 import cv2
 from fastapi import HTTPException, UploadFile
+from app.services.ocr_service import extract_text_from_image
 
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -93,14 +94,16 @@ def detect_blur_score(document_path: str) -> dict:
 def analyze_document_mock(document_path: str) -> dict:
     """
     Première analyse du document.
-    Pour l'instant : analyse simulée + vrai contrôle de flou sur les images.
+    V1 : contrôle de flou + OCR simulé.
     """
 
     blur_result = detect_blur_score(document_path)
 
+    analyzed_path = blur_result.get("analyzed_path") or document_path
+    ocr_result = extract_text_from_image(analyzed_path)
+
     alerts = [
         "Analyse partiellement simulée",
-        "OCR non encore activé",
         "Type de document non confirmé"
     ]
 
@@ -112,6 +115,14 @@ def analyze_document_mock(document_path: str) -> dict:
 
     if blur_result["is_blurry"] is None:
         alerts.append(blur_result["message"])
+
+    if not ocr_result["ocr_enabled"]:
+        alerts.append("OCR non exécuté")
+        global_risk_score += 20
+
+    if ocr_result["ocr_enabled"] and len(ocr_result["extracted_text"]) < 10:
+        alerts.append("Texte OCR trop faible ou inexploitable")
+        global_risk_score += 20
 
     if global_risk_score <= 30:
         status = "low_risk"
@@ -125,11 +136,15 @@ def analyze_document_mock(document_path: str) -> dict:
 
     return {
         "document_path": document_path,
+        "analyzed_path": analyzed_path,
         "detected_document_type": "unknown",
         "is_expired": None,
         "blur_score": blur_result["blur_score"],
         "is_blurry": blur_result["is_blurry"],
         "blur_threshold": blur_result["threshold"],
+        "ocr_enabled": ocr_result["ocr_enabled"],
+        "ocr_message": ocr_result["message"],
+        "extracted_text": ocr_result["extracted_text"],
         "readability_score": None,
         "fraud_suspicion_score": 20,
         "global_risk_score": global_risk_score,
