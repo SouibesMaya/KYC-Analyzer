@@ -4,7 +4,11 @@ from uuid import uuid4
 import cv2
 from fastapi import HTTPException, UploadFile
 from app.services.ocr_service import extract_text_from_image
+from app.services.document_classifier_service import detect_document_type
+
+from app.services.ocr_service import extract_text_from_image
 from app.services.identity_extraction_service import extract_identity_information
+from app.services.document_classifier_service import detect_document_type
 
 UPLOAD_DIR = Path("uploads")
 UPLOAD_DIR.mkdir(exist_ok=True)
@@ -90,7 +94,6 @@ def detect_blur_score(document_path: str) -> dict:
         "threshold": threshold,
         "message": "Document flou détecté." if is_blurry else "Document suffisamment lisible."
     }
-
 def analyze_document_mock(document_path: str) -> dict:
     """
     Analyse V1 du document :
@@ -98,6 +101,7 @@ def analyze_document_mock(document_path: str) -> dict:
     - OCR simulé
     - extraction nom/prénom
     - extraction date d'expiration
+    - classification du type de document
     - scoring de risque
     """
 
@@ -117,16 +121,28 @@ def analyze_document_mock(document_path: str) -> dict:
         "expiration_found": False
     }
 
+    classification_result = detect_document_type(
+        ocr_result["extracted_text"]
+    ) if ocr_result["ocr_enabled"] else {
+        "detected_document_type": "unknown",
+        "document_type_confidence": 0,
+        "document_type_scores": {
+            "identity_card": 0,
+            "passport": 0,
+            "rib": 0
+        }
+    }
+
+    detected_document_type = classification_result["detected_document_type"]
+
     alerts = [
-        "Analyse V1 partiellement simulée",
-        "Classification du type de document non encore active"
+        "Analyse V1 partiellement simulée"
     ]
 
     global_risk_score = 0
 
-    # Pénalité faible tant que la classification automatique du type de document n'est pas active
-    detected_document_type = "unknown"
     if detected_document_type == "unknown":
+        alerts.append("Type de document non reconnu")
         global_risk_score += 10
 
     if blur_result["is_blurry"] is True:
@@ -144,17 +160,21 @@ def analyze_document_mock(document_path: str) -> dict:
         alerts.append("Texte OCR trop faible ou inexploitable")
         global_risk_score += 20
 
-    if not identity_result["name_found"]:
-        alerts.append("Nom ou prénom non détecté")
-        global_risk_score += 10
+    if detected_document_type in ["identity_card", "passport"]:
+        if not identity_result["name_found"]:
+            alerts.append("Nom ou prénom non détecté")
+            global_risk_score += 10
 
-    if not identity_result["expiration_found"]:
-        alerts.append("Date d'expiration non détectée")
-        global_risk_score += 15
+        if not identity_result["expiration_found"]:
+            alerts.append("Date d'expiration non détectée")
+            global_risk_score += 15
 
-    if identity_result["is_expired"] is True:
-        alerts.append("Document expiré")
-        global_risk_score += 40
+        if identity_result["is_expired"] is True:
+            alerts.append("Document expiré")
+            global_risk_score += 40
+
+    if detected_document_type == "rib":
+        alerts.append("Contrôle RIB non encore actif dans cette V1")
 
     if global_risk_score <= 30:
         status = "low_risk"
@@ -170,6 +190,8 @@ def analyze_document_mock(document_path: str) -> dict:
         "document_path": document_path,
         "analyzed_path": analyzed_path,
         "detected_document_type": detected_document_type,
+        "document_type_confidence": classification_result["document_type_confidence"],
+        "document_type_scores": classification_result["document_type_scores"],
         "last_name": identity_result["last_name"],
         "first_name": identity_result["first_name"],
         "name_found": identity_result["name_found"],

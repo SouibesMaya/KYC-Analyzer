@@ -1,10 +1,18 @@
 from pathlib import Path
 
+import pytesseract
+from PIL import Image
+
+
+TESSERACT_PATH = r"C:\Users\m.souibes\AppData\Local\Programs\Tesseract-OCR\tesseract.exe"
+
+if Path(TESSERACT_PATH).exists():
+    pytesseract.pytesseract.tesseract_cmd = TESSERACT_PATH
+
 
 def extract_text_from_image(image_path: str) -> dict:
     """
-    OCR simulé pour la V1.
-    Cette fonction sera remplacée par un vrai moteur OCR comme Tesseract ou une API OCR.
+    Extrait le texte brut d'une image avec Tesseract OCR.
     """
 
     path = Path(image_path)
@@ -16,17 +24,23 @@ def extract_text_from_image(image_path: str) -> dict:
             "message": f"Fichier introuvable : {image_path}"
         }
 
-    simulated_text = """
-    REPUBLIQUE FRANCAISE
-    CARTE NATIONALE D'IDENTITE
-    Nom: SOUIBES
-    Prenom: Mohamed
-    Date de naissance: 01/01/1998
-    Date d'expiration: 16/02/2031
-    """
+    try:
+        image = Image.open(path)
 
-    return {
-        "ocr_enabled": True,
-        "extracted_text": simulated_text.strip(),
-        "message": "OCR simulé exécuté avec succès"
-    }
+        extracted_text = pytesseract.image_to_string(
+            image,
+            lang="eng"
+        )
+
+        return {
+            "ocr_enabled": True,
+            "extracted_text": extracted_text.strip(),
+            "message": "OCR réel exécuté avec succès"
+        }
+
+    except Exception as error:
+        return {
+            "ocr_enabled": False,
+            "extracted_text": "",
+            "message": f"Erreur OCR : {str(error)}"
+        }
