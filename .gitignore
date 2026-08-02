@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+env/
+.env
+
+# Base de données locale (voir database/schema.sql et database/dump.sql pour le rendu)
+backend/*.db
+backend/*.db-journal
+
+# Documents uploadés (données potentiellement sensibles, non versionnées)
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Éditeurs / IDE
+.vscode/
+.idea/
+
+# Tests
+.pytest_cache/
+htmlcov/
+.coverage

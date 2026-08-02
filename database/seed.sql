@@ -1,0 +1,26 @@
+-- ============================================================================
+-- KYC Analyzer / Fraud Document Analyzer — Jeu de données d'amorçage (seed)
+-- ============================================================================
+-- Ce fichier est VOLONTAIREMENT VIDE (pas d'INSERT).
+--
+-- Raison : les seules données existantes dans backend/kyc_analyzer.db sont des
+-- résultats réels d'analyses OCR/MRZ effectuées sur des documents d'identité
+-- et bancaires réellement uploadés pendant les tests du projet. Un fichier
+-- seed.sql a normalement vocation à être rejoué tel quel sur n'importe quel
+-- poste pour amorcer un environnement de développement — y inclure, même sous
+-- forme anonymisée, des lignes qui restent tracées jusqu'à de vrais documents
+-- irait à l'encontre du principe de minimisation des données (voir
+-- docs/rgpd-security.md).
+--
+-- L'export anonymisé des données réellement présentes en base au moment du
+-- rendu (structure + contenu avec champs identifiants redacted) se trouve
+-- dans database/dump.sql et peut être rejoué pour disposer d'un jeu de
+-- données de démonstration cohérent avec le schéma réel.
+--
+-- Pour repartir d'une base strictement vide (aucune donnée, seulement la
+-- structure) :
+--   1. Supprimer backend/kyc_analyzer.db (ou renommer pour backup)
+--   2. Lancer le backend (python -m uvicorn main:app --reload) : les tables
+--      sont recréées automatiquement au démarrage via create_tables()
+--      (backend/app/database.py), sans aucune donnée.
+-- ============================================================================

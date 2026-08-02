@@ -1,0 +1,1361 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>KYC Analyzer — Betclic Fraud</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+  <style>
+    [x-cloak]{display:none!important}
+
+    /* ══ TOKENS ══════════════════════════════════════ */
+    :root{
+      --red:#e30613; --red-dk:#b80510; --red-xl:rgba(227,6,19,.07);
+      --black:#0a0a0a;
+      --bg:#f4f5f9;          /* cool off-white, more "app" */
+      --surface:#ffffff;
+      --border:#e8eaef;      /* slightly blue-tinted */
+      --border-strong:#d0d4de;
+      --text:#0f172a;        /* near-black, rich */
+      --text-2:#475569;      /* secondary */
+      --muted:#94a3b8;       /* label grey */
+    }
+
+    *{box-sizing:border-box}
+    body{
+      background:var(--bg);
+      color:var(--text);
+      font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;
+      min-height:100vh;
+      -webkit-font-smoothing:antialiased;
+    }
+
+    /* ══ ANIMATIONS ══════════════════════════════════ */
+    @keyframes countBlur{from{filter:blur(6px);opacity:0;transform:translateY(4px)}to{filter:blur(0);opacity:1;transform:translateY(0)}}
+    .num-anim{animation:countBlur 0.5s cubic-bezier(.4,0,.2,1) forwards}
+
+    @keyframes spin{to{transform:rotate(360deg)}}
+    .spin{animation:spin 0.7s linear infinite}
+
+    @keyframes pls{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.85)}}
+    .pls{animation:pls 2s ease-in-out infinite}
+
+    @keyframes barGrow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+    .bar-anim{animation:barGrow 0.55s cubic-bezier(.4,0,.2,1) forwards;transform-origin:bottom}
+
+    @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+    .fade-up{animation:fadeUp 0.3s cubic-bezier(.4,0,.2,1) forwards}
+
+    @keyframes shimmer{from{background-position:200% 0}to{background-position:-200% 0}}
+    .shimmer{
+      background:linear-gradient(90deg,#1e2d45 25%,#253352 50%,#1e2d45 75%);
+      background-size:200% 100%;
+      animation:shimmer 1.6s ease-in-out infinite;
+    }
+
+    /* ══ DONUT ═══════════════════════════════════════ */
+    .donut{width:156px;height:156px;border-radius:50%;position:relative;flex-shrink:0;
+      filter:drop-shadow(0 4px 12px rgba(0,0,0,.12))}
+    .donut::after{content:'';width:92px;height:92px;background:#fff;border-radius:50%;
+      position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+      box-shadow:inset 0 1px 3px rgba(0,0,0,.07)}
+
+    /* ══ DROP ZONE ════════════════════════════════════ */
+    .drop-active{
+      border-color:var(--red)!important;
+      background:linear-gradient(135deg,#fff5f5,#fff)!important;
+      box-shadow:0 0 0 4px rgba(227,6,19,.08)!important;
+    }
+
+    /* ══ SCROLLBAR ════════════════════════════════════ */
+    .sc::-webkit-scrollbar{width:3px;height:3px}
+    .sc::-webkit-scrollbar-track{background:transparent}
+    .sc::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:99px}
+
+    /* ══ MONO ════════════════════════════════════════ */
+    .mono{font-family:'JetBrains Mono','Fira Code','Courier New',monospace;font-size:11px;line-height:1.9;letter-spacing:.01em}
+
+    /* ══ BUTTON ══════════════════════════════════════ */
+    .btn{
+      display:inline-flex;align-items:center;gap:.45rem;
+      padding:.6rem 1.3rem;border-radius:10px;
+      font-size:.8rem;font-weight:700;letter-spacing:.02em;
+      border:none;cursor:pointer;
+      transition:background .14s,transform .08s,box-shadow .14s;
+      font-family:inherit;
+    }
+    .btn:active{transform:scale(0.95)}
+    .btn-red{background:var(--red);color:#fff;box-shadow:0 2px 8px rgba(227,6,19,.28)}
+    .btn-red:hover{background:var(--red-dk);box-shadow:0 4px 14px rgba(227,6,19,.35)}
+    .btn-red:disabled{opacity:.38;cursor:not-allowed;box-shadow:none}
+    .btn-outline{background:#fff;color:var(--text);border:1.5px solid var(--border)}
+    .btn-outline:hover{border-color:var(--border-strong);background:#f8f9fc;box-shadow:0 2px 6px rgba(0,0,0,.06)}
+
+    /* ══ WORDMARK ════════════════════════════════════ */
+    .wm{font-style:italic;font-weight:900;letter-spacing:-.05em;color:var(--red);font-size:1.3rem;line-height:1}
+
+    /* ══ NAV TAB ═════════════════════════════════════ */
+    .nav-tab{
+      padding:.9rem 1.2rem;font-size:.8rem;font-weight:700;letter-spacing:.025em;
+      color:#5a6278;border:none;background:none;cursor:pointer;
+      border-bottom:2px solid transparent;
+      transition:color .15s,border-color .15s;white-space:nowrap;
+    }
+    .nav-tab:hover{color:#c4c9d8}
+    .nav-tab.active{color:#fff;border-bottom-color:var(--red)}
+
+    /* ══ CARD ════════════════════════════════════════ */
+    .card{
+      background:#fff;
+      border:1px solid var(--border);
+      border-radius:16px;
+      box-shadow:0 1px 2px rgba(15,23,42,.04),0 4px 20px rgba(15,23,42,.05);
+      transition:box-shadow .18s;
+    }
+
+    /* ══ BADGE / PILL ════════════════════════════════ */
+    .badge{
+      display:inline-flex;align-items:center;
+      padding:.2rem .7rem;border-radius:99px;
+      font-size:.7rem;font-weight:700;letter-spacing:.02em;
+    }
+
+    /* ══ KPI CARD ════════════════════════════════════ */
+    .kpi-card{
+      padding:1.5rem 1.75rem;border-radius:16px;
+      background:linear-gradient(145deg,#121d30 0%,#1a2842 100%);
+      border:1px solid rgba(255,255,255,.07);
+      position:relative;overflow:hidden;
+      box-shadow:0 8px 24px rgba(0,0,0,.2);
+    }
+    /* top accent line */
+    .kpi-card::before{
+      content:'';position:absolute;top:0;left:0;right:0;height:2px;
+      background:linear-gradient(90deg,var(--red) 0%,rgba(227,6,19,.15) 60%,transparent 100%);
+    }
+    /* ambient circle */
+    .kpi-card::after{
+      content:'';position:absolute;bottom:-40px;right:-40px;
+      width:110px;height:110px;border-radius:50%;
+      background:radial-gradient(circle,rgba(255,255,255,.04) 0%,transparent 70%);
+    }
+
+    /* ══ DECISION BAR ════════════════════════════════ */
+    .dec-bar{height:7px;border-radius:99px;transition:width 1s cubic-bezier(.4,0,.2,1)}
+
+    /* ══ PRINT ═══════════════════════════════════════ */
+    @media print{
+      header,.no-print{display:none!important}
+      body{background:#fff}
+      .card{box-shadow:none;border:1px solid #ddd}
+      main{padding:0}
+    }
+
+    /* ══ FILE INPUT ══════════════════════════════════ */
+    input[type=file]{display:none}
+
+    /* ══ TABLE ═══════════════════════════════════════ */
+    tr.row{transition:background .1s}
+    tr.row:hover td{background:#f8f9fc}
+
+    /* ══ SECTION LABEL ═══════════════════════════════ */
+    .sec-label{
+      font-size:.7rem;font-weight:800;
+      text-transform:uppercase;letter-spacing:.1em;
+      color:var(--muted);
+    }
+
+    /* ══ STAT ICON ═══════════════════════════════════ */
+    .stat-icon{
+      display:flex;align-items:center;justify-content:center;
+      width:40px;height:40px;border-radius:12px;flex-shrink:0;
+    }
+
+    /* ══ INPUT FOCUS ═════════════════════════════════ */
+    .input-base{
+      width:100%;border:1.5px solid var(--border);
+      border-radius:10px;padding:.65rem .9rem;
+      font-size:.875rem;font-weight:500;color:var(--text);
+      outline:none;transition:border-color .15s,box-shadow .15s;
+      font-family:inherit;background:#fff;
+    }
+    .input-base:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(227,6,19,.1)}
+  </style>
+</head>
+<body x-data="app()" x-cloak>
+
+<!-- ════════════════════════════════════════════
+     HEADER
+════════════════════════════════════════════ -->
+<header style="background:var(--black);border-bottom:1px solid rgba(255,255,255,.06)" class="sticky top-0 z-30">
+  <div class="max-w-6xl mx-auto px-5 flex items-stretch">
+
+    <!-- Logo -->
+    <div class="flex items-center gap-3 py-3.5 pr-6" style="border-right:1px solid rgba(255,255,255,.07)">
+      <div style="background:var(--red);width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 3px 10px rgba(227,6,19,.4)">
+        <svg width="17" height="17" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+        </svg>
+      </div>
+      <div class="flex flex-col">
+        <span class="wm">Betclic</span>
+        <span style="color:#3d4559;font-size:.6rem;font-weight:800;letter-spacing:.1em;margin-top:1px;line-height:1">KYC · FRAUD</span>
+      </div>
+    </div>
+
+    <!-- Nav -->
+    <nav class="flex items-stretch gap-0 flex-1 pl-2">
+      <button @click="setTab('dashboard')" :class="tab==='dashboard'?'active':''" :aria-current="tab==='dashboard'?'page':null" class="nav-tab">
+        Tableau de bord
+      </button>
+      <button @click="setTab('cases')" :class="tab==='cases'?'active':''" :aria-current="tab==='cases'?'page':null" class="nav-tab">
+        Dossiers
+      </button>
+      <button @click="setTab('quick')" :class="tab==='quick'?'active':''" :aria-current="tab==='quick'?'page':null" class="nav-tab">
+        Analyse rapide
+      </button>
+      <button @click="setTab('history'); loadHistory()" :class="tab==='history'?'active':''" :aria-current="tab==='history'?'page':null" class="nav-tab">
+        Historique
+      </button>
+    </nav>
+
+    <!-- Status -->
+    <div class="flex items-center gap-2.5 pl-5" style="border-left:1px solid rgba(255,255,255,.07)">
+      <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;box-shadow:0 0 0 3px rgba(34,197,94,.18)" class="pls"></div>
+      <span style="color:#3d4559;font-size:.68rem;font-weight:700;letter-spacing:.08em">EN LIGNE</span>
+    </div>
+  </div>
+</header>
+
+
+<main class="max-w-6xl mx-auto px-5 py-6">
+
+<!-- ════════════════════════════════════════════
+     TAB : TABLEAU DE BORD
+════════════════════════════════════════════ -->
+<div x-show="tab==='dashboard'" x-transition>
+
+  <!-- Page title + export -->
+  <div class="flex items-center justify-between mb-5 no-print">
+    <div>
+      <h2 class="text-xl font-black text-gray-900 tracking-tight">Tableau de bord</h2>
+      <p class="text-xs text-gray-400 mt-0.5 font-medium">Vue d'ensemble des documents traités et des décisions prises</p>
+    </div>
+    <div class="flex gap-2">
+      <button @click="exportCsv()" class="btn btn-outline">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Excel
+      </button>
+      <button @click="exportPdf()" class="btn btn-outline">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M17 17h2a2 2 0 002-2v-4a2 2 0 00-2-2H5a2 2 0 00-2 2v4a2 2 0 002 2h2m2 4h6a2 2 0 002-2v-4a2 2 0 00-2-2H9a2 2 0 00-2 2v4a2 2 0 002 2zm8-12V5a2 2 0 00-2-2H9a2 2 0 00-2 2v4h10z"/>
+        </svg>
+        PDF
+      </button>
+    </div>
+  </div>
+
+  <!-- Date filter -->
+  <div class="card px-4 py-3 mb-5 flex items-center gap-3 flex-wrap no-print" style="border-radius:10px">
+    <span class="text-xs font-black text-gray-400 uppercase tracking-widest mr-1">Période</span>
+    <template x-for="f in dateFilters" :key="f.value">
+      <button @click="setDateFilter(f.value)"
+        :style="dateFilter===f.value ? 'background:var(--red);color:#fff;border-color:var(--red)' : ''"
+        class="px-3 py-1 text-xs font-bold rounded-md border border-gray-200 text-gray-500 hover:border-red-400 transition-all"
+        x-text="f.label"></button>
+    </template>
+    <div x-show="dateFilter==='custom'" class="flex items-center gap-2 ml-2">
+      <input type="date" x-model="customFrom" @change="loadKpis()" aria-label="Date de début de la période"
+        class="border border-gray-200 rounded-md px-2 py-1 text-xs font-medium text-gray-700 outline-none"
+        @focus="$el.style.borderColor='var(--red)'" @blur="$el.style.borderColor=''"/>
+      <span class="text-xs text-gray-400 font-bold" aria-hidden="true">→</span>
+      <input type="date" x-model="customTo" @change="loadKpis()" aria-label="Date de fin de la période"
+        class="border border-gray-200 rounded-md px-2 py-1 text-xs font-medium text-gray-700 outline-none"
+        @focus="$el.style.borderColor='var(--red)'" @blur="$el.style.borderColor=''"/>
+    </div>
+  </div>
+
+  <!-- Loading skeleton -->
+  <div x-show="kpiLoading" class="space-y-5">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <template x-for="i in [1,2,3,4]">
+        <div class="kpi-card" style="height:118px">
+          <div class="shimmer" style="height:11px;border-radius:99px;width:55%;margin-bottom:16px;opacity:.7"></div>
+          <div class="shimmer" style="height:40px;border-radius:8px;width:38%;margin-bottom:12px;opacity:.5"></div>
+          <div class="shimmer" style="height:3px;border-radius:99px;width:100%;opacity:.3"></div>
+        </div>
+      </template>
+    </div>
+    <div class="grid grid-cols-3 gap-3">
+      <template x-for="i in [1,2,3]">
+        <div class="card px-5 py-4" style="height:78px">
+          <div style="height:10px;border-radius:99px;width:50%;background:#f1f3f8;margin-bottom:10px"></div>
+          <div style="height:26px;border-radius:6px;width:30%;background:#f1f3f8"></div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <!-- KPI HERO -->
+  <div x-show="!kpiLoading && kpis" class="fade-up">
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-5">
+
+      <!-- Docs traités -->
+      <div class="kpi-card">
+        <div style="position:absolute;top:1.1rem;right:1.25rem;opacity:.12">
+          <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </div>
+        <p class="sec-label mb-3" style="color:#64748b">Documents traités</p>
+        <p class="font-black leading-none mb-2 num-anim"
+           style="font-size:2.75rem;color:#fff;font-variant-numeric:tabular-nums;letter-spacing:-.03em"
+           x-text="kpiDisplay.total"></p>
+        <p style="font-size:.72rem;color:#374461;font-weight:600" x-text="dateFilterLabel()"></p>
+      </div>
+
+      <!-- Emails envoyés -->
+      <div class="kpi-card">
+        <div style="position:absolute;top:1.1rem;right:1.25rem;opacity:.12">
+          <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#f59e0b" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        </div>
+        <p class="sec-label mb-3" style="color:#64748b">Emails envoyés</p>
+        <p class="font-black leading-none mb-2 num-anim"
+           style="font-size:2.75rem;color:#f59e0b;font-variant-numeric:tabular-nums;letter-spacing:-.03em"
+           x-text="kpiDisplay.emails"></p>
+        <p style="font-size:.72rem;color:#374461;font-weight:600">Notifications client</p>
+      </div>
+
+      <!-- Taux conformité -->
+      <div class="kpi-card">
+        <div style="position:absolute;top:1.1rem;right:1.25rem;opacity:.12">
+          <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#10b981" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <p class="sec-label mb-3" style="color:#64748b">Taux de conformité</p>
+        <p class="font-black leading-none mb-2 num-anim"
+           style="font-size:2.75rem;color:#10b981;font-variant-numeric:tabular-nums;letter-spacing:-.03em"
+           x-text="kpiDisplay.compliance + '%'"></p>
+        <p style="font-size:.72rem;color:#374461;font-weight:600">Documents acceptés</p>
+      </div>
+
+      <!-- Score moyen -->
+      <div class="kpi-card">
+        <div style="position:absolute;top:1.1rem;right:1.25rem;opacity:.12">
+          <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <p class="sec-label mb-3" style="color:#64748b">Score risque moyen</p>
+        <p class="font-black leading-none mb-2.5 num-anim"
+           :style="`font-size:2.75rem;font-variant-numeric:tabular-nums;letter-spacing:-.03em;color:${kpiDisplay.avgRisk<=25?'#10b981':kpiDisplay.avgRisk<=55?'#f59e0b':'#e30613'}`"
+           x-text="kpiDisplay.avgRisk + '/100'"></p>
+        <div style="background:rgba(255,255,255,.08);border-radius:99px;height:3px;width:100%">
+          <div :style="`width:${kpis?.avg_risk_score??0}%;height:3px;border-radius:99px;transition:width 1.2s cubic-bezier(.4,0,.2,1);background:${(kpis?.avg_risk_score??0)<=25?'#10b981':(kpis?.avg_risk_score??0)<=55?'#f59e0b':'#e30613'}`"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ligne 2 : mini stat pills -->
+    <div class="grid grid-cols-3 gap-3 mb-5">
+      <div class="card px-4 py-3 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-black uppercase tracking-widest text-gray-400 mb-0.5">Dossiers ouverts</p>
+          <p class="text-2xl font-black text-gray-800" style="font-variant-numeric:tabular-nums" x-text="kpis?.total_cases ?? 0"></p>
+        </div>
+        <div style="background:#f4f4f4;border-radius:10px;padding:.6rem">
+          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#6b7280" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+          </svg>
+        </div>
+      </div>
+      <div class="card px-4 py-3 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-black uppercase tracking-widest text-gray-400 mb-0.5">Documents expirés</p>
+          <p class="text-2xl font-black" style="color:var(--red);font-variant-numeric:tabular-nums" x-text="kpis?.expired_count ?? 0"></p>
+        </div>
+        <div style="background:#fff5f5;border-radius:10px;padding:.6rem">
+          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#e30613" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+      </div>
+      <div class="card px-4 py-3 flex items-center justify-between">
+        <div>
+          <p class="text-xs font-black uppercase tracking-widest text-gray-400 mb-0.5">MRZ lus</p>
+          <p class="text-2xl font-black text-green-600" style="font-variant-numeric:tabular-nums" x-text="(kpis?.mrz_rate ?? 0) + '%'"></p>
+        </div>
+        <div style="background:#f0fdf4;border-radius:10px;padding:.6rem">
+          <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="#10b981" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ligne 3 : Donut + Barres -->
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+
+      <!-- Répartition par type -->
+      <div class="card p-5">
+        <p class="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Répartition par type de document</p>
+        <div x-show="!hasTypeData()" class="flex items-center justify-center py-10 text-gray-300 text-xs font-bold">Aucune donnée</div>
+        <div x-show="hasTypeData()" class="flex items-center gap-6">
+          <!-- Donut -->
+          <div class="donut shrink-0" :style="'background:' + donutGradient()"></div>
+          <!-- Legend -->
+          <div class="flex-1 space-y-2.5 min-w-0">
+            <template x-for="item in typeItems()" :key="item.key">
+              <div class="flex items-center gap-2">
+                <span class="w-2.5 h-2.5 rounded-full shrink-0" :style="`background:${item.color}`"></span>
+                <span class="text-xs text-gray-600 flex-1 truncate font-medium" x-text="item.label"></span>
+                <span class="text-xs font-black text-gray-800 tabular-nums shrink-0" x-text="item.count"></span>
+                <span class="text-xs text-gray-400 shrink-0 font-semibold" x-text="'(' + item.pct + '%)'"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+
+      <!-- Activité quotidienne -->
+      <div class="card p-5">
+        <div class="flex items-center justify-between mb-4">
+          <p class="text-xs font-black uppercase tracking-widest text-gray-400">Activité des documents</p>
+          <span class="text-xs text-gray-400 font-semibold" x-text="'14 derniers jours'"></span>
+        </div>
+        <div x-show="!hasDailyData()" class="flex items-center justify-center py-10 text-gray-300 text-xs font-bold">Aucune donnée</div>
+        <div x-show="hasDailyData()" class="flex flex-col gap-2">
+          <!-- Bars -->
+          <div class="flex items-end gap-0.5" style="height:100px">
+            <template x-for="(d, i) in last14()" :key="d.date">
+              <div class="flex-1 flex flex-col items-center justify-end h-full">
+                <div class="w-full rounded-t-sm bar-anim transition-all"
+                     :style="`height:${maxDaily()>0 ? Math.max((d.count/maxDaily())*100,d.count>0?4:0) : 0}%;background:${d.count>0?'var(--red)':'#f3f4f6'}`"
+                     :title="`${d.date} : ${d.count} doc${d.count>1?'s':''}`"></div>
+              </div>
+            </template>
+          </div>
+          <!-- X-axis labels -->
+          <div class="flex gap-0.5">
+            <template x-for="(d, i) in last14()" :key="d.date">
+              <div class="flex-1 flex justify-center">
+                <span x-show="i===0 || i===6 || i===13" class="text-xs text-gray-400" style="font-size:9px" x-text="d.date.slice(5)"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ligne 4 : Décisions breakdown -->
+    <div class="card p-5 mb-4">
+      <p class="text-xs font-black uppercase tracking-widest text-gray-400 mb-5">Décisions automatiques</p>
+      <div x-show="!hasDecisionData()" class="text-gray-300 text-xs font-bold text-center py-8">Aucune donnée</div>
+      <div x-show="hasDecisionData()" class="space-y-3.5">
+        <template x-for="d in decisionItems()" :key="d.key">
+          <div class="flex items-center gap-4">
+            <span class="text-xs font-bold text-gray-600 w-36 shrink-0" x-text="d.label"></span>
+            <div class="flex-1 bg-gray-100 rounded-full overflow-hidden" style="height:8px">
+              <div class="dec-bar rounded-full"
+                   :style="`width:${d.pct}%;background:${d.color}`"></div>
+            </div>
+            <span class="text-xs font-black text-gray-800 w-8 text-right tabular-nums" x-text="d.count"></span>
+            <span class="text-xs font-semibold text-gray-400 w-10 text-right tabular-nums" x-text="d.pct + '%'"></span>
+          </div>
+        </template>
+      </div>
+    </div>
+
+    <!-- Ligne 5 : statuts OCR -->
+    <div class="grid grid-cols-3 gap-3 mb-4">
+      <template x-for="s in statusItems()" :key="s.key">
+        <div class="card px-4 py-3 flex items-center gap-3">
+          <div :style="`background:${s.bg};border-radius:8px;padding:.5rem`">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" :stroke="s.color" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" :d="s.icon"/>
+            </svg>
+          </div>
+          <div>
+            <p class="text-xs font-black text-gray-400 uppercase tracking-wide" x-text="s.label"></p>
+            <p class="text-lg font-black tabular-nums" :style="`color:${s.color}`" x-text="s.count"></p>
+          </div>
+        </div>
+      </template>
+    </div>
+
+  </div><!-- /fade-up -->
+
+  <!-- Empty state -->
+  <div x-show="!kpiLoading && !kpis" class="text-center py-20 text-gray-400">
+    <div style="width:56px;height:56px;background:#f3f4f6;border-radius:14px;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem">
+      <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="#d1d5db" stroke-width="1.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/>
+      </svg>
+    </div>
+    <p class="font-bold text-sm">Aucune donnée disponible</p>
+    <p class="text-xs mt-1">Analysez des documents pour voir apparaître les KPI</p>
+  </div>
+
+</div><!-- /tab dashboard -->
+
+
+<!-- ════════════════════════════════════════════
+     TAB : DOSSIERS
+════════════════════════════════════════════ -->
+<div x-show="tab==='cases'" x-transition>
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <h2 class="text-xl font-black text-gray-900 tracking-tight">Dossiers</h2>
+      <p class="text-xs text-gray-400 mt-0.5 font-medium">Créez un dossier par user_id et soumettez le document reçu.</p>
+    </div>
+    <button @click="caseStep='create'; newCase={userId:'',docType:''}; caseResult=null; emailSent=false"
+      class="btn btn-red">
+      <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+      </svg>
+      Nouveau dossier
+    </button>
+  </div>
+
+  <!-- Stepper -->
+  <div x-show="caseStep==='create'||caseStep==='submit'||caseResult" class="mb-6">
+
+    <!-- Step 1 -->
+    <div x-show="caseStep==='create'" class="card p-6 max-w-md fade-up">
+      <div class="flex items-center gap-2 mb-4">
+        <span class="w-6 h-6 rounded-md flex items-center justify-center text-white text-xs font-black" style="background:var(--red)">1</span>
+        <span class="font-black text-gray-800">Créer le dossier</span>
+      </div>
+      <div class="space-y-3">
+        <div>
+          <label for="new-case-user-id" class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">User ID</label>
+          <input id="new-case-user-id" x-model="newCase.userId" placeholder="USR-12345" type="text"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-semibold outline-none transition-all"
+            @focus="$el.style.borderColor='var(--red)';$el.style.boxShadow='0 0 0 3px rgba(227,6,19,.1)'"
+            @blur="$el.style.borderColor='';$el.style.boxShadow=''"/>
+        </div>
+        <div>
+          <label for="new-case-doc-type" class="block text-xs font-black text-gray-400 uppercase tracking-widest mb-1.5">Document demandé</label>
+          <select id="new-case-doc-type" x-model="newCase.docType"
+            class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm font-semibold bg-white outline-none transition-all"
+            @focus="$el.style.borderColor='var(--red)'" @blur="$el.style.borderColor=''">
+            <option value="">Sélectionner</option>
+            <option value="identity_card">Carte Nationale d'Identité</option>
+            <option value="passport">Passeport</option>
+            <option value="residence_permit">Titre de Séjour</option>
+            <option value="residence_card">Carte de Résident</option>
+            <option value="rib">RIB</option>
+            <option value="bank_statement">Relevé Bancaire</option>
+          </select>
+        </div>
+        <button @click="createCase()" :disabled="!newCase.userId||!newCase.docType||caseLoading" class="btn btn-red w-full justify-center py-2.5">
+          <span x-show="!caseLoading">Créer le dossier</span>
+          <span x-show="caseLoading" class="flex items-center gap-2">
+            <svg class="spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+            Création…
+          </span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Step 2 -->
+    <div x-show="caseStep==='submit'&&!caseResult" class="space-y-3 fade-up">
+      <div class="card px-4 py-3 flex items-center gap-3">
+        <span class="w-6 h-6 rounded-md flex items-center justify-center text-white text-xs font-black shrink-0" style="background:var(--red)">2</span>
+        <span class="text-sm text-gray-600">
+          Dossier pour <strong class="text-gray-900" x-text="createdCase?.user_id"></strong>
+          <span class="text-gray-300 mx-1">·</span>
+          Attendu : <strong style="color:var(--red)" x-text="docTypeLabel(createdCase?.requested_doc_type)"></strong>
+        </span>
+      </div>
+
+      <div x-show="!caseLoading"
+        @dragover.prevent="dragging=true" @dragleave="dragging=false" @drop.prevent="onDrop($event,'case')"
+        :class="dragging?'drop-active':''"
+        role="button" tabindex="0" aria-label="Déposer ou parcourir pour choisir le document du dossier (PDF, JPG, PNG, max 10 Mo)"
+        @keydown.enter="$refs.caseFileInput.click()" @keydown.space.prevent="$refs.caseFileInput.click()"
+        class="card border-2 border-dashed border-gray-200 p-10 text-center cursor-pointer hover:border-red-400 transition-all"
+        @click="$refs.caseFileInput.click()">
+        <input type="file" x-ref="caseFileInput" accept=".pdf,.jpg,.jpeg,.png" aria-label="Fichier du document à soumettre" @change="onFileSelected($event,'case')"/>
+        <div class="flex flex-col items-center gap-3">
+          <div style="width:52px;height:52px;background:#fff5f5;border-radius:12px;display:flex;align-items:center;justify-content:center">
+            <svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="var(--red)" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/>
+            </svg>
+          </div>
+          <div>
+            <p class="text-sm font-bold text-gray-700">Déposer le document ou <span style="color:var(--red)">parcourir</span></p>
+            <p class="text-xs text-gray-400 mt-0.5">PDF, JPG, PNG · Max 10 MB</p>
+          </div>
+          <div x-show="caseFile" class="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-bold" style="background:#fff5f5;color:var(--red)">
+            <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+            <span x-text="caseFile?.name"></span>
+          </div>
+        </div>
+      </div>
+
+      <div x-show="caseLoading" class="flex flex-col items-center py-12 gap-4">
+        <svg class="spin w-12 h-12" style="color:var(--red)" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/>
+          <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+        </svg>
+        <div class="text-center">
+          <p class="font-black text-gray-800">Analyse en cours</p>
+          <p class="text-xs text-gray-400 mt-0.5">OCR · MRZ · Classification · Décision</p>
+        </div>
+      </div>
+
+      <button x-show="caseFile&&!caseLoading" @click="submitDocument()" class="btn btn-red w-full justify-center py-3">
+        Analyser le document reçu
+        <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+      </button>
+    </div>
+
+    <!-- Résultat -->
+    <div x-show="caseResult" class="space-y-4 fade-up">
+
+      <div :class="decisionBannerClass(caseResult?.decision?.decision)"
+        class="rounded-xl border p-5 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+          <span class="text-3xl" x-text="decisionIcon(caseResult?.decision?.decision)"></span>
+          <div>
+            <p class="font-black text-lg tracking-tight" x-text="decisionLabel(caseResult?.decision?.decision)"></p>
+            <p class="text-xs opacity-70 mt-0.5">
+              Demandé : <b x-text="docTypeLabel(caseResult?.decision?.requested_doc_type)"></b>
+              <span class="mx-1 opacity-40">·</span>
+              Reçu : <b x-text="docTypeLabel(caseResult?.decision?.received_doc_type)"></b>
+            </p>
+          </div>
+        </div>
+        <div class="text-right shrink-0">
+          <p class="font-black tabular-nums" style="font-size:2.5rem" x-text="(caseResult?.analysis?.global_risk_score??0)+'/100'"></p>
+          <p class="text-xs opacity-50 uppercase font-black tracking-wide">Score risque</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="card p-5">
+          <p class="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Informations extraites</p>
+          <div x-show="isIdentityDoc(caseResult?.analysis?.detected_document_type)" class="space-y-0">
+            <template x-for="f in caseExtractedFields()" :key="f.label">
+              <div class="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
+                <span class="text-xs text-gray-400 font-semibold w-28 shrink-0" x-text="f.label"></span>
+                <span class="text-sm font-bold text-gray-800 flex-1" x-text="f.value||'—'"></span>
+                <span x-show="f.tag" :class="f.tagClass" class="badge" x-text="f.tag"></span>
+              </div>
+            </template>
+          </div>
+          <div x-show="!isIdentityDoc(caseResult?.analysis?.detected_document_type)" class="space-y-0">
+            <template x-for="f in caseBankingFields()" :key="f.label">
+              <div class="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0">
+                <span class="text-xs text-gray-400 font-semibold w-28 shrink-0 pt-0.5" x-text="f.label"></span>
+                <span class="text-xs font-mono font-bold text-gray-800" x-text="f.value||'—'"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+        <div class="card p-5 flex flex-col gap-3">
+          <div class="flex items-center justify-between">
+            <p class="text-xs font-black uppercase tracking-widest text-gray-400">Synthèse reviewer</p>
+            <button @click="copyCaseSynthesis()" class="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors">
+              <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+              <span x-text="caseSynthCopied?'Copié !':'Copier'"></span>
+            </button>
+          </div>
+          <div class="bg-gray-50 rounded-lg p-3.5 flex-1 overflow-auto border border-gray-100 mono text-gray-700 sc"
+            x-text="caseResult?.analysis?.synthesis_text||'—'"></div>
+        </div>
+      </div>
+
+      <!-- Email -->
+      <div x-show="caseResult?.decision?.requires_email" class="card p-5">
+        <div class="flex items-center gap-2.5 mb-4">
+          <div style="width:32px;height:32px;background:#fff5f5;border-radius:8px;display:flex;align-items:center;justify-content:center">
+            <svg width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="var(--red)" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          </div>
+          <p class="font-black text-sm text-gray-800">Email à envoyer au client</p>
+          <button @click="copyEmail()" class="ml-auto text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors">
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            <span x-text="emailCopied?'Copié !':'Copier'"></span>
+          </button>
+        </div>
+        <div class="space-y-2.5 mb-4">
+          <div class="bg-gray-50 border border-gray-100 rounded-lg px-4 py-2.5 text-sm flex items-center gap-2">
+            <span class="text-xs font-black text-gray-400 uppercase tracking-wide shrink-0">Objet</span>
+            <span class="font-semibold text-gray-700" x-text="caseResult?.decision?.email_subject"></span>
+          </div>
+          <pre class="bg-gray-50 border border-gray-100 rounded-lg px-4 py-3.5 text-xs text-gray-600 whitespace-pre-wrap sc max-h-48 overflow-auto"
+            x-text="caseResult?.decision?.email_body"></pre>
+        </div>
+        <div class="flex items-center gap-3">
+          <button @click="simulateSend()" :disabled="emailSending||emailSent"
+            class="btn"
+            :class="emailSent?'bg-green-500 text-white':'btn-red'">
+            <span x-show="!emailSending&&!emailSent" class="flex items-center gap-2">
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+              Envoyer l'email
+            </span>
+            <span x-show="emailSending" class="flex items-center gap-2">
+              <svg class="spin w-4 h-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+              Envoi en cours…
+            </span>
+            <span x-show="emailSent" class="flex items-center gap-2">
+              <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
+              Email envoyé
+            </span>
+          </button>
+          <span x-show="emailSent" class="text-xs font-semibold text-green-600 fade-up">Simulation réussie</span>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <button @click="resetCase()" class="btn btn-outline flex-1 justify-center py-2.5">Nouveau dossier</button>
+        <button @click="setTab('cases'); caseStep='list'; loadCases()" class="btn btn-red flex-1 justify-center py-2.5">Voir tous les dossiers</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Liste dossiers -->
+  <div x-show="!caseStep||caseStep==='list'">
+    <div class="flex items-center justify-between mb-3">
+      <div class="flex gap-1.5 flex-wrap">
+        <template x-for="s in caseStatusFilters" :key="s.value">
+          <button @click="caseFilter=s.value; loadCases()"
+            :style="caseFilter===s.value?'background:var(--red);color:#fff;border-color:var(--red)':''"
+            class="px-3 py-1 text-xs font-bold rounded-md border border-gray-200 text-gray-500 hover:border-red-400 transition-all bg-white"
+            x-text="s.label"></button>
+        </template>
+      </div>
+      <button @click="loadCases()" class="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 font-bold transition-colors">
+        <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        Actualiser
+      </button>
+    </div>
+
+    <div x-show="casesLoading" class="text-center py-10">
+      <svg class="spin w-6 h-6 mx-auto" style="color:var(--red)" fill="none" viewBox="0 0 24 24"><circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+    </div>
+
+    <div x-show="casesList.length===0&&!casesLoading" class="text-center py-16 text-gray-400">
+      <div style="width:52px;height:52px;background:#f3f4f6;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto .75rem">
+        <svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="#d1d5db" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+      </div>
+      <p class="font-bold text-sm">Aucun dossier</p>
+    </div>
+
+    <div x-show="casesList.length>0" class="card overflow-hidden">
+      <table class="w-full text-sm">
+        <thead style="background:#f9f9f9" class="border-b border-gray-100">
+          <tr>
+            <th class="text-left px-5 py-3 text-xs font-black text-gray-400 uppercase tracking-wider">User ID</th>
+            <th class="text-left px-5 py-3 text-xs font-black text-gray-400 uppercase tracking-wider">Document</th>
+            <th class="text-left px-5 py-3 text-xs font-black text-gray-400 uppercase tracking-wider">Créé le</th>
+            <th class="text-center px-5 py-3 text-xs font-black text-gray-400 uppercase tracking-wider">Décision</th>
+            <th class="px-5 py-3"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          <template x-for="c in casesList" :key="c.id">
+            <tr class="row hover:bg-gray-50 transition-colors">
+              <td class="px-5 py-3.5 font-mono text-xs font-bold text-gray-800" x-text="c.user_id"></td>
+              <td class="px-5 py-3.5 text-xs text-gray-600 font-medium" x-text="docTypeLabel(c.requested_doc_type)"></td>
+              <td class="px-5 py-3.5 text-xs text-gray-400" x-text="formatDate(c.created_at)"></td>
+              <td class="px-5 py-3.5 text-center">
+                <span x-show="c.status==='pending'" class="badge bg-gray-100 text-gray-500">En attente</span>
+                <span x-show="c.status!=='pending'" :class="decisionBadgeClass(c.decision)" class="badge" x-text="decisionBadgeLabel(c.decision)"></span>
+              </td>
+              <td class="px-5 py-3.5 text-right">
+                <button x-show="c.status==='pending'" @click="resumeCase(c)" class="text-xs font-black transition-colors" style="color:var(--red)">Soumettre</button>
+                <button x-show="c.status!=='pending'" @click="openCaseDetail(c.id)" class="text-xs text-gray-400 font-bold hover:text-gray-600 transition-colors">Détail</button>
+              </td>
+            </tr>
+          </template>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div><!-- /tab cases -->
+
+
+<!-- ════════════════════════════════════════════
+     TAB : ANALYSE RAPIDE
+════════════════════════════════════════════ -->
+<div x-show="tab==='quick'" x-transition>
+  <div class="mb-5">
+    <h2 class="text-xl font-black text-gray-900 tracking-tight">Analyse rapide</h2>
+    <p class="text-xs text-gray-400 mt-0.5 font-medium">Test direct d'un document sans créer de dossier.</p>
+  </div>
+
+  <div x-show="!quickResult&&!quickLoading"
+    @dragover.prevent="dragging=true" @dragleave="dragging=false" @drop.prevent="onDrop($event,'quick')"
+    :class="dragging?'drop-active':''"
+    role="button" tabindex="0" aria-label="Déposer ou parcourir pour choisir un document à analyser (PDF, JPG, PNG, max 10 Mo)"
+    @keydown.enter="$refs.quickFileInput.click()" @keydown.space.prevent="$refs.quickFileInput.click()"
+    class="card border-2 border-dashed border-gray-200 p-14 text-center cursor-pointer hover:border-red-400 transition-all"
+    @click="$refs.quickFileInput.click()">
+    <input type="file" x-ref="quickFileInput" accept=".pdf,.jpg,.jpeg,.png" aria-label="Fichier du document à analyser" @change="onFileSelected($event,'quick')"/>
+    <div class="flex flex-col items-center gap-4">
+      <div style="width:72px;height:72px;background:#fff5f5;border-radius:18px;display:flex;align-items:center;justify-content:center">
+        <svg width="36" height="36" fill="none" viewBox="0 0 24 24" stroke="var(--red)" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+      </div>
+      <div>
+        <p class="text-base font-black text-gray-700">Déposer ou <span style="color:var(--red)">parcourir</span></p>
+        <p class="text-xs text-gray-400 mt-1">CNI · Passeport · Titre de séjour · RIB · Relevé · PDF JPG PNG</p>
+      </div>
+      <div x-show="quickFile" class="flex items-center gap-2 px-4 py-1.5 rounded-lg text-sm font-bold" style="background:#fff5f5;color:var(--red)">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        <span x-text="quickFile?.name"></span>
+      </div>
+      <button x-show="quickFile" @click.stop="analyzeQuick()" class="btn btn-red px-8 py-2.5">Analyser le document</button>
+    </div>
+  </div>
+
+  <div x-show="quickLoading" class="flex flex-col items-center py-20 gap-4">
+    <svg class="spin w-14 h-14" style="color:var(--red)" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/>
+      <path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+    </svg>
+    <div class="text-center">
+      <p class="font-black text-gray-800">Analyse en cours</p>
+      <p class="text-xs text-gray-400 mt-0.5">OCR · MRZ · Classification · Synthèse</p>
+    </div>
+  </div>
+
+  <div x-show="quickResult" class="space-y-4 fade-up">
+    <div class="flex items-center justify-between">
+      <h3 class="text-lg font-black text-gray-900 tracking-tight">Résultat</h3>
+      <button @click="quickResult=null;quickFile=null" class="btn btn-outline py-1.5 text-xs">
+        <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        Nouvelle analyse
+      </button>
+    </div>
+
+    <div :class="statusBannerClass(quickResult?.analysis?.status)"
+      class="rounded-xl border p-5 flex items-center justify-between">
+      <div class="flex items-center gap-4">
+        <span class="text-3xl" x-text="statusIcon(quickResult?.analysis?.status)"></span>
+        <div>
+          <p class="font-black text-lg tracking-tight" x-text="statusLabel(quickResult?.analysis?.status)"></p>
+          <p class="text-xs opacity-70 mt-0.5" x-text="quickResult?.analysis?.recommendation"></p>
+        </div>
+      </div>
+      <div class="text-right shrink-0">
+        <p class="font-black tabular-nums" style="font-size:2.5rem" x-text="(quickResult?.analysis?.global_risk_score??0)+'/100'"></p>
+        <p class="text-xs opacity-50 uppercase font-black tracking-wide">Score risque</p>
+      </div>
+    </div>
+
+    <div class="w-full bg-gray-100 rounded-full overflow-hidden" style="height:5px">
+      <div class="risk-bar rounded-full" style="height:5px;transition:width .9s ease"
+           :style="`width:${quickResult?.analysis?.global_risk_score??0}%;background:${(quickResult?.analysis?.global_risk_score??0)<=25?'#10b981':(quickResult?.analysis?.global_risk_score??0)<=55?'#f59e0b':'#e30613'}`"></div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="card p-5">
+        <p class="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Champs extraits</p>
+        <div class="space-y-0">
+          <template x-for="f in quickExtractedFields()" :key="f.label">
+            <div class="flex items-center gap-3 py-2.5 border-b border-gray-50 last:border-0">
+              <span class="text-xs text-gray-400 font-semibold w-28 shrink-0" x-text="f.label"></span>
+              <span class="text-sm font-bold text-gray-800 flex-1" x-text="f.value||'—'"></span>
+              <span x-show="f.tag" :class="f.tagClass" class="badge" x-text="f.tag"></span>
+            </div>
+          </template>
+        </div>
+      </div>
+      <div class="card p-5 flex flex-col gap-3">
+        <div class="flex items-center justify-between">
+          <p class="text-xs font-black uppercase tracking-widest text-gray-400">Synthèse reviewer</p>
+          <button @click="copySynthesis()" class="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1 transition-colors">
+            <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg>
+            <span x-text="synthCopied?'Copié !':'Copier'"></span>
+          </button>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-3.5 flex-1 overflow-auto border border-gray-100 mono text-gray-700 sc"
+          x-text="quickResult?.analysis?.synthesis_text||'—'"></div>
+      </div>
+    </div>
+
+    <div class="card overflow-hidden">
+      <button @click="showOcr=!showOcr" class="w-full flex items-center justify-between px-5 py-3.5 hover:bg-gray-50 transition-colors text-left">
+        <div class="flex items-center gap-2">
+          <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+          <span class="text-sm text-gray-500 font-bold">Texte OCR brut</span>
+        </div>
+        <svg :class="showOcr?'rotate-180':''" class="w-4 h-4 text-gray-300 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+      </button>
+      <div x-show="showOcr" x-transition class="px-5 pb-5">
+        <pre class="text-xs text-gray-500 bg-gray-50 rounded-lg p-3.5 overflow-auto max-h-40 border border-gray-100 sc"
+          x-text="quickResult?.analysis?.extracted_text||'Aucun texte extrait'"></pre>
+      </div>
+    </div>
+  </div>
+</div><!-- /tab quick -->
+
+
+<!-- ════════════════════════════════════════════
+     TAB : HISTORIQUE
+════════════════════════════════════════════ -->
+<div x-show="tab==='history'" x-transition>
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <h2 class="text-xl font-black text-gray-900 tracking-tight">Historique</h2>
+      <p class="text-xs text-gray-400 mt-0.5 font-medium">Toutes les analyses enregistrées.</p>
+    </div>
+    <button @click="loadHistory()" class="btn btn-outline py-1.5 text-xs">
+      <svg width="13" height="13" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+      Actualiser
+    </button>
+  </div>
+
+  <div x-show="historyLoading" class="text-center py-10">
+    <svg class="spin w-6 h-6 mx-auto" style="color:var(--red)" fill="none" viewBox="0 0 24 24"><circle class="opacity-20" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3"/><path class="opacity-90" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+  </div>
+
+  <div x-show="historyItems.length===0&&!historyLoading" class="text-center py-16 text-gray-400">
+    <div style="width:52px;height:52px;background:#f3f4f6;border-radius:12px;display:flex;align-items:center;justify-content:center;margin:0 auto .75rem">
+      <svg width="26" height="26" fill="none" viewBox="0 0 24 24" stroke="#d1d5db" stroke-width="1.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+    </div>
+    <p class="font-bold text-sm">Aucune analyse</p>
+  </div>
+
+  <div x-show="historyItems.length>0" class="card overflow-hidden">
+    <table class="w-full text-sm">
+      <thead style="background:#f9f9f9" class="border-b border-gray-100">
+        <tr>
+          <th class="text-left px-5 py-3.5 text-xs font-black text-gray-400 uppercase tracking-wider">Fichier</th>
+          <th class="text-left px-5 py-3.5 text-xs font-black text-gray-400 uppercase tracking-wider">Titulaire</th>
+          <th class="text-left px-5 py-3.5 text-xs font-black text-gray-400 uppercase tracking-wider">Type</th>
+          <th class="text-left px-5 py-3.5 text-xs font-black text-gray-400 uppercase tracking-wider">Expiration</th>
+          <th class="text-center px-5 py-3.5 text-xs font-black text-gray-400 uppercase tracking-wider">Risque</th>
+          <th class="text-center px-5 py-3.5 text-xs font-black text-gray-400 uppercase tracking-wider">Statut</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-50">
+        <template x-for="item in historyItems" :key="item.id">
+          <tr class="row hover:bg-gray-50 transition-colors">
+            <td class="px-5 py-3.5 text-xs text-gray-600 max-w-40 truncate font-medium" x-text="item.original_filename"></td>
+            <td class="px-5 py-3.5 text-sm text-gray-800 font-bold" x-text="[item.last_name,item.first_name].filter(Boolean).join(' ')||'—'"></td>
+            <td class="px-5 py-3.5">
+              <span :class="docTypeBadgeClass(item.detected_document_type)" class="badge" x-text="docTypeShort(item.detected_document_type)"></span>
+            </td>
+            <td class="px-5 py-3.5 text-xs font-semibold" :style="item.is_expired?'color:var(--red)':'color:#9ca3af'"
+              x-text="formatShortDate(item.expiration_date)+(item.is_expired?' !':'')"></td>
+            <td class="px-5 py-3.5 text-center font-black text-sm tabular-nums" :class="riskColor2(item.global_risk_score)"
+              x-text="item.global_risk_score??'—'"></td>
+            <td class="px-5 py-3.5 text-center">
+              <span :class="statusBadgeClass(item.status)" class="badge" x-text="statusBadgeLabel(item.status)"></span>
+            </td>
+          </tr>
+        </template>
+      </tbody>
+    </table>
+  </div>
+</div><!-- /tab history -->
+
+</main>
+
+
+<!-- Modal -->
+<div x-show="caseDetailModal" x-transition role="dialog" aria-modal="true" :aria-label="'Détail du dossier ' + (caseDetailModal?.user_id||'')"
+  class="fixed inset-0 flex items-center justify-center z-50 p-4" style="background:rgba(0,0,0,.5)"
+  @click.self="caseDetailModal=null" @keydown.escape="caseDetailModal=null">
+  <div class="bg-white rounded-xl shadow-2xl max-w-xl w-full max-h-[80vh] flex flex-col border border-gray-100">
+    <div class="flex items-center justify-between p-5 border-b border-gray-100">
+      <div>
+        <p class="font-black text-gray-900" x-text="'Dossier · '+caseDetailModal?.user_id"></p>
+        <p class="text-xs text-gray-400 font-semibold mt-0.5" x-text="docTypeLabel(caseDetailModal?.requested_doc_type)"></p>
+      </div>
+      <button @click="caseDetailModal=null" aria-label="Fermer le détail du dossier" style="width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center" class="hover:bg-gray-100 transition-colors text-gray-400 hover:text-gray-600">
+        <svg width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="overflow-auto p-5 space-y-3 sc">
+      <div :class="decisionBannerClass(caseDetailModal?.decision)" class="rounded-lg p-4 border flex items-center gap-3">
+        <span class="text-xl" x-text="decisionIcon(caseDetailModal?.decision)"></span>
+        <span class="font-black" x-text="decisionLabel(caseDetailModal?.decision)"></span>
+      </div>
+      <div x-show="caseDetailModal?.email_body" class="space-y-2">
+        <div class="bg-gray-50 border border-gray-100 rounded-lg px-4 py-2.5 text-sm flex items-center gap-2">
+          <span class="text-xs font-black text-gray-400 uppercase tracking-wide shrink-0">Objet</span>
+          <span class="font-semibold text-gray-700" x-text="caseDetailModal?.email_subject"></span>
+        </div>
+        <pre class="bg-gray-50 rounded-lg p-4 text-xs text-gray-600 whitespace-pre-wrap border border-gray-100 sc max-h-60 overflow-auto"
+          x-text="caseDetailModal?.email_body"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div x-show="toastMsg" x-transition role="alert" aria-live="assertive" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+  <div :style="toastType==='error'?'background:var(--red)':'background:#111827'"
+    class="text-white px-5 py-2.5 rounded-lg shadow-2xl text-sm font-black flex items-center gap-2">
+    <span x-show="toastType==='error'" aria-hidden="true">!</span><span x-show="toastType==='success'" aria-hidden="true">✓</span>
+    <span x-text="toastMsg"></span>
+  </div>
+</div>
+
+
+<script>
+const API = 'http://localhost:8000';
+
+const DOC_LABELS = {
+  identity_card:"Carte Nationale d'Identité", passport:"Passeport",
+  residence_permit:"Titre de Séjour", residence_card:"Carte de Résident",
+  rib:"RIB", bank_statement:"Relevé Bancaire", unknown:"Inconnu",
+};
+const DOC_SHORT = {
+  identity_card:"CNI", passport:"Passeport", residence_permit:"Titre séjour",
+  residence_card:"Carte résident", rib:"RIB", bank_statement:"Relevé", unknown:"?",
+};
+const IDENTITY_TYPES = new Set(['identity_card','passport','residence_permit','residence_card']);
+
+const TYPE_COLORS = {
+  identity_card:'#e30613', passport:'#2563eb', residence_permit:'#059669',
+  residence_card:'#0891b2', rib:'#d97706', bank_statement:'#7c3aed', unknown:'#9ca3af',
+};
+
+function app() {
+  return {
+    tab:'dashboard',
+    dragging:false,
+    toastMsg:null, toastType:'error',
+
+    // ── Dashboard ──────────────────────────────────────
+    kpis: null,
+    kpiLoading: false,
+    kpiDisplay: { total:0, emails:0, compliance:0, avgRisk:0 },
+    dateFilter: '30',
+    customFrom: '',
+    customTo: '',
+    dateFilters: [
+      {value:'7',   label:'7 j'},
+      {value:'30',  label:'30 j'},
+      {value:'90',  label:'90 j'},
+      {value:'365', label:'12 m'},
+      {value:'all', label:'Tout'},
+      {value:'custom', label:'Personnalisé'},
+    ],
+
+    async loadKpis() {
+      this.kpiLoading = true;
+      let url = `${API}/api/analytics/kpis`;
+      const params = [];
+      if (this.dateFilter !== 'all' && this.dateFilter !== 'custom') {
+        params.push(`days=${this.dateFilter}`);
+      } else if (this.dateFilter === 'custom') {
+        if (this.customFrom) params.push(`from_date=${this.customFrom}`);
+        if (this.customTo)   params.push(`to_date=${this.customTo}`);
+      }
+      if (params.length) url += '?' + params.join('&');
+      try {
+        const res = await fetch(url);
+        this.kpis = await res.json();
+        this.animateKpis();
+      } catch { this.showToast("Impossible de charger les KPI", 'error'); }
+      finally { this.kpiLoading = false; }
+    },
+
+    animateKpis() {
+      const targets = {
+        total:      this.kpis.total_documents,
+        emails:     this.kpis.emails_sent,
+        compliance: this.kpis.compliance_rate,
+        avgRisk:    this.kpis.avg_risk_score,
+      };
+      const steps = 40;
+      const dur = 900;
+      const interval = dur / steps;
+      Object.keys(targets).forEach(key => {
+        const target = targets[key];
+        const isFloat = !Number.isInteger(target);
+        let step = 0;
+        const timer = setInterval(() => {
+          step++;
+          const progress = step / steps;
+          const eased = 1 - Math.pow(1 - progress, 3);
+          const val = target * eased;
+          this.kpiDisplay[key] = isFloat ? Math.round(val * 10) / 10 : Math.round(val);
+          if (step >= steps) clearInterval(timer);
+        }, interval);
+      });
+    },
+
+    setDateFilter(v) {
+      this.dateFilter = v;
+      if (v !== 'custom') this.loadKpis();
+    },
+
+    dateFilterLabel() {
+      const f = this.dateFilters.find(x => x.value === this.dateFilter);
+      return f ? `Période : ${f.label}` : '';
+    },
+
+    donutGradient() {
+      const types = this.kpis?.by_type || {};
+      const total = Object.values(types).reduce((a,b) => a+b, 0);
+      if (!total) return 'conic-gradient(#f3f4f6 0deg 360deg)';
+      let deg = 0;
+      const parts = [];
+      for (const [type, count] of Object.entries(types)) {
+        const share = (count / total) * 360;
+        const color = TYPE_COLORS[type] || '#9ca3af';
+        parts.push(`${color} ${deg.toFixed(2)}deg ${(deg+share).toFixed(2)}deg`);
+        deg += share;
+      }
+      return `conic-gradient(${parts.join(',')})`;
+    },
+
+    typeItems() {
+      const types = this.kpis?.by_type || {};
+      const total = Object.values(types).reduce((a,b) => a+b, 0);
+      return Object.entries(types).map(([key, count]) => ({
+        key, count,
+        label: DOC_LABELS[key] || key,
+        color: TYPE_COLORS[key] || '#9ca3af',
+        pct: total ? Math.round(count/total*100) : 0,
+      })).sort((a,b) => b.count - a.count);
+    },
+
+    hasTypeData()     { return Object.keys(this.kpis?.by_type||{}).length > 0; },
+    hasDailyData()    { return (this.kpis?.daily_counts||[]).length > 0; },
+    hasDecisionData() { return Object.keys(this.kpis?.by_decision||{}).length > 0; },
+
+    last14() {
+      const all = this.kpis?.daily_counts || [];
+      // Ensure last 14 entries, fill missing days with 0
+      if (all.length >= 14) return all.slice(-14);
+      const filled = [];
+      for (let i = 13; i >= 0; i--) {
+        const d = new Date();
+        d.setDate(d.getDate() - i);
+        const key = d.toISOString().slice(0,10);
+        const found = all.find(x => x.date === key);
+        filled.push(found || { date: key, count: 0 });
+      }
+      return filled;
+    },
+
+    maxDaily() {
+      return Math.max(...this.last14().map(d => d.count), 1);
+    },
+
+    decisionItems() {
+      const dec = this.kpis?.by_decision || {};
+      const total = Object.values(dec).reduce((a,b) => a+b, 0);
+      const config = [
+        { key:'compliant',     label:'Conforme',            color:'#10b981' },
+        { key:'wrong_document',label:'Mauvais document',    color:'#e30613' },
+        { key:'expired',       label:'Document expiré',     color:'#f59e0b' },
+        { key:'low_quality',   label:'Qualité insuffisante',color:'#f97316' },
+        { key:'manual_review', label:'Vérification manuelle',color:'#3b82f6'},
+        { key:'pending',       label:'En attente',          color:'#9ca3af' },
+      ];
+      return config
+        .map(c => ({ ...c, count: dec[c.key]||0, pct: total ? Math.round((dec[c.key]||0)/total*100) : 0 }))
+        .filter(c => c.count > 0)
+        .sort((a,b) => b.count - a.count);
+    },
+
+    statusItems() {
+      const st = this.kpis?.by_status || {};
+      return [
+        { key:'low_risk',      label:'Conforme',          count: st.low_risk||0,      color:'#10b981', bg:'#f0fdf4', icon:'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
+        { key:'manual_review', label:'À examiner',        count: st.manual_review||0, color:'#f59e0b', bg:'#fffbeb', icon:'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z' },
+        { key:'high_risk',     label:'Risque élevé',      count: st.high_risk||0,     color:'#e30613', bg:'#fff5f5', icon:'M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636' },
+      ];
+    },
+
+    exportCsv() {
+      if (!this.kpis) return;
+      const rows = [
+        ['KYC Analyzer — Export KPI', ''],
+        ['Période', this.dateFilterLabel()],
+        ['', ''],
+        ['Indicateur', 'Valeur'],
+        ['Documents traités', this.kpis.total_documents],
+        ['Dossiers ouverts', this.kpis.total_cases],
+        ['Emails envoyés', this.kpis.emails_sent],
+        ['Taux de conformité (%)', this.kpis.compliance_rate],
+        ['Score risque moyen (/100)', this.kpis.avg_risk_score],
+        ['Documents expirés', this.kpis.expired_count],
+        ['Taux MRZ lu (%)', this.kpis.mrz_rate],
+        ['', ''],
+        ['Répartition par type', ''],
+        ...Object.entries(this.kpis.by_type||{}).map(([k,v]) => [DOC_LABELS[k]||k, v]),
+        ['', ''],
+        ['Décisions', ''],
+        ...Object.entries(this.kpis.by_decision||{}).map(([k,v]) => [k, v]),
+        ['', ''],
+        ['Activité quotidienne', ''],
+        ['Date', 'Documents'],
+        ...(this.kpis.daily_counts||[]).map(d => [d.date, d.count]),
+      ];
+      const csv = '﻿' + rows.map(r => r.join(';')).join('\n');
+      const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `kyc-kpis-${new Date().toISOString().slice(0,10)}.csv`;
+      a.click();
+    },
+
+    exportPdf() { window.print(); },
+
+    // ── Cases ──────────────────────────────────────────
+    caseStep:'list', caseLoading:false,
+    newCase:{userId:'',docType:''},
+    createdCase:null, caseFile:null, caseResult:null,
+    casesList:[], casesLoading:false, caseFilter:'all',
+    caseDetailModal:null,
+    emailCopied:false, emailSending:false, emailSent:false, caseSynthCopied:false,
+    caseStatusFilters:[
+      {value:'all',label:'Tous'},{value:'pending',label:'En attente'},
+      {value:'compliant',label:'Conformes'},{value:'wrong_document',label:'Mauvais doc'},
+      {value:'expired',label:'Expirés'},{value:'manual_review',label:'À examiner'},
+    ],
+
+    // ── Quick ──────────────────────────────────────────
+    quickFile:null, quickLoading:false, quickResult:null,
+    showOcr:false, synthCopied:false,
+
+    // ── History ────────────────────────────────────────
+    historyItems:[], historyLoading:false,
+
+    setTab(t) {
+      this.tab = t;
+      if (t==='dashboard') this.loadKpis();
+      if (t==='cases')     this.loadCases();
+    },
+
+    async createCase() {
+      if (!this.newCase.userId||!this.newCase.docType) return;
+      this.caseLoading = true;
+      try {
+        const res = await fetch(`${API}/api/cases/`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({user_id:this.newCase.userId,requested_doc_type:this.newCase.docType})});
+        if (!res.ok) throw new Error((await res.json()).detail);
+        this.createdCase = await res.json();
+        this.caseStep = 'submit';
+      } catch(e){this.showToast(e.message,'error');}
+      finally{this.caseLoading=false;}
+    },
+
+    async submitDocument() {
+      if (!this.caseFile||!this.createdCase) return;
+      this.caseLoading = true;
+      const form = new FormData();
+      form.append('file',this.caseFile);
+      try {
+        const res = await fetch(`${API}/api/cases/${this.createdCase.case_id}/submit-document`,{method:'POST',body:form});
+        if (!res.ok) throw new Error((await res.json()).detail);
+        this.caseResult = await res.json();
+        this.emailSent = false;
+      } catch(e){this.showToast(e.message,'error');}
+      finally{this.caseLoading=false;}
+    },
+
+    async loadCases() {
+      this.casesLoading = true;
+      const s = this.caseFilter!=='all'?`&status=${this.caseFilter}`:'';
+      try{const res=await fetch(`${API}/api/cases/?limit=50${s}`);const d=await res.json();this.casesList=d.items||[];}
+      catch{this.showToast("Impossible de charger les dossiers",'error');}
+      finally{this.casesLoading=false;}
+    },
+
+    async openCaseDetail(id) {
+      try{const res=await fetch(`${API}/api/cases/${id}`);this.caseDetailModal=await res.json();}
+      catch{this.showToast("Impossible de charger le dossier",'error');}
+    },
+
+    resumeCase(c){this.createdCase={case_id:c.id,user_id:c.user_id,requested_doc_type:c.requested_doc_type};this.caseStep='submit';this.caseResult=null;this.caseFile=null;this.emailSent=false;},
+    resetCase(){this.caseStep='list';this.createdCase=null;this.caseResult=null;this.caseFile=null;this.emailSent=false;this.loadCases();},
+
+    copyEmail(){navigator.clipboard.writeText(this.caseResult?.decision?.email_body||'').then(()=>{this.emailCopied=true;setTimeout(()=>{this.emailCopied=false;},2000);});},
+    copyCaseSynthesis(){navigator.clipboard.writeText(this.caseResult?.analysis?.synthesis_text||'').then(()=>{this.caseSynthCopied=true;setTimeout(()=>{this.caseSynthCopied=false;},2000);});},
+
+    simulateSend(){
+      if(this.emailSending||this.emailSent)return;
+      this.emailSending=true;
+      setTimeout(()=>{this.emailSending=false;this.emailSent=true;this.showToast("Email envoyé (simulation)",'success');},1800);
+    },
+
+    async analyzeQuick(){
+      if(!this.quickFile)return;
+      this.quickLoading=true;
+      const form=new FormData();form.append('file',this.quickFile);
+      try{const res=await fetch(`${API}/api/documents/upload-and-analyze`,{method:'POST',body:form});if(!res.ok)throw new Error((await res.json()).detail);this.quickResult=await res.json();}
+      catch(e){this.showToast(e.message,'error');}
+      finally{this.quickLoading=false;}
+    },
+
+    copySynthesis(){navigator.clipboard.writeText(this.quickResult?.analysis?.synthesis_text||'').then(()=>{this.synthCopied=true;setTimeout(()=>{this.synthCopied=false;},2000);});},
+
+    async loadHistory(){
+      this.historyLoading=true;
+      try{const res=await fetch(`${API}/api/documents/analyses?limit=50`);const d=await res.json();this.historyItems=d.items||[];}
+      catch{this.showToast("Impossible de charger l'historique",'error');}
+      finally{this.historyLoading=false;}
+    },
+
+    onDrop(e,target){this.dragging=false;const f=e.dataTransfer.files[0];if(!f)return;if(target==='case')this.caseFile=f;else this.quickFile=f;},
+    onFileSelected(e,target){const f=e.target.files[0]||null;if(target==='case')this.caseFile=f;else this.quickFile=f;},
+
+    caseExtractedFields(){return this._buildFields(this.caseResult?.analysis);},
+    quickExtractedFields(){return this._buildFields(this.quickResult?.analysis);},
+
+    _buildFields(a){
+      if(!a)return[];
+      return[
+        {label:'Type',value:DOC_LABELS[a.detected_document_type]||a.detected_document_type},
+        {label:'Nom',value:a.last_name},
+        {label:'Prénom',value:a.first_name},
+        {label:'Date naissance',value:this.formatShortDate(a.date_of_birth)},
+        {label:'Nationalité',value:a.nationality_label||a.nationality},
+        {label:'N° document',value:a.document_number},
+        {label:'Expiration',value:this.formatShortDate(a.expiration_date),
+          tag:a.is_expired?'EXPIRÉ':(a.expiration_date?'Valide':null),
+          tagClass:a.is_expired?'bg-red-100 text-red-700':'bg-green-100 text-green-700'},
+        {label:'Qualité image',value:a.blur_score!=null?`${a.blur_score}`:null,
+          tag:a.is_blurry===true?'Flou':(a.is_blurry===false?'OK':null),
+          tagClass:a.is_blurry?'bg-amber-100 text-amber-700':'bg-green-100 text-green-700'},
+      ].filter(f=>f.value);
+    },
+
+    caseBankingFields(){
+      const a=this.caseResult?.analysis;if(!a)return[];
+      return[
+        {label:'IBAN',value:a.iban},{label:'BIC',value:a.bic},
+        {label:'Titulaire',value:a.account_holder},{label:'Banque',value:a.bank_name},
+        {label:'Du',value:a.period_from},{label:'Au',value:a.period_to},
+        {label:'Récent',value:a.is_recent===true?'Oui':(a.is_recent===false?'Non':null)},
+      ].filter(f=>f.value);
+    },
+
+    isIdentityDoc(t){return IDENTITY_TYPES.has(t);},
+
+    decisionLabel(d){return{compliant:'Document conforme',wrong_document:'Mauvais document reçu',expired:'Document expiré',low_quality:'Qualité insuffisante',manual_review:'Vérification manuelle'}[d]||d||'—';},
+    decisionIcon(d){return{compliant:'✅',wrong_document:'❌',expired:'⏰',low_quality:'⚠️',manual_review:'🔍'}[d]||'❓';},
+    decisionBannerClass(d){return{compliant:'bg-green-50 text-green-800 border-green-200',wrong_document:'bg-red-50 text-red-800 border-red-200',expired:'bg-orange-50 text-orange-800 border-orange-200',low_quality:'bg-amber-50 text-amber-800 border-amber-200',manual_review:'bg-blue-50 text-blue-800 border-blue-200'}[d]||'bg-gray-50 text-gray-800 border-gray-200';},
+    decisionBadgeClass(d){return{compliant:'bg-green-100 text-green-700',wrong_document:'bg-red-100 text-red-700',expired:'bg-orange-100 text-orange-700',low_quality:'bg-amber-100 text-amber-700',manual_review:'bg-blue-100 text-blue-700',pending:'bg-gray-100 text-gray-500'}[d]||'bg-gray-100 text-gray-500';},
+    decisionBadgeLabel(d){return{compliant:'Conforme',wrong_document:'Mauvais doc',expired:'Expiré',low_quality:'Illisible',manual_review:'À examiner',pending:'En attente'}[d]||d||'—';},
+
+    statusBannerClass(s){return{low_risk:'bg-green-50 text-green-800 border-green-200',manual_review:'bg-amber-50 text-amber-800 border-amber-200',high_risk:'bg-red-50 text-red-800 border-red-200'}[s]||'bg-gray-50 text-gray-800 border-gray-200';},
+    statusIcon(s){return{low_risk:'✅',manual_review:'⚠️',high_risk:'🚨'}[s]||'❓';},
+    statusLabel(s){return{low_risk:'Document conforme',manual_review:'Vérification manuelle',high_risk:'Risque élevé'}[s]||s;},
+    statusBadgeClass(s){return{low_risk:'bg-green-100 text-green-700',manual_review:'bg-amber-100 text-amber-700',high_risk:'bg-red-100 text-red-700'}[s]||'bg-gray-100 text-gray-500';},
+    statusBadgeLabel(s){return{low_risk:'OK',manual_review:'À vérifier',high_risk:'Risque'}[s]||s;},
+    riskColor2(score){if(score==null)return'text-gray-400';return score<=25?'text-green-600':score<=55?'text-amber-600':'text-red-600';},
+
+    docTypeLabel(t){return DOC_LABELS[t]||t||'—';},
+    docTypeShort(t){return DOC_SHORT[t]||t||'—';},
+    docTypeBadgeClass(t){return{identity_card:'bg-blue-100 text-blue-700',passport:'bg-purple-100 text-purple-700',residence_permit:'bg-teal-100 text-teal-700',residence_card:'bg-cyan-100 text-cyan-700',rib:'bg-green-100 text-green-700',bank_statement:'bg-indigo-100 text-indigo-700',unknown:'bg-gray-100 text-gray-500'}[t]||'bg-gray-100 text-gray-500';},
+
+    formatDate(iso){if(!iso)return'—';try{return new Date(iso).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});}catch{return iso;}},
+    formatShortDate(iso){if(!iso)return null;try{return new Date(iso+(iso.length===10?'T00:00:00':'')).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric'});}catch{return iso;}},
+
+    showToast(msg,type='error'){this.toastMsg=msg;this.toastType=type;setTimeout(()=>{this.toastMsg=null;},3500);},
+
+    init(){this.loadKpis();},
+  };
+}
+</script>
+</body>
+</html>
