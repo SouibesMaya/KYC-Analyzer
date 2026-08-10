@@ -30,3 +30,16 @@ Thumbs.db
 .pytest_cache/
 htmlcov/
 .coverage
+
+# Local Claude Code settings
+.claude/
+
+# Runtime uploads
+backend/uploads/*
+!backend/uploads/.gitkeep
+
+# Local database
+backend/*.db
+
+# Test cache
+backend/.pytest_cache/

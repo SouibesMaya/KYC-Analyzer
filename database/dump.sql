@@ -5,7 +5,7 @@
 -- Contenu            : structure réelle (DROP + CREATE) + données réellement
 --                      présentes en base au moment de l'export.
 --
--- ⚠️ ANONYMISATION — les données ci-dessous sont réelles (15 analyses de
+-- ANONYMISATION — les données ci-dessous sont réelles (15 analyses de
 -- documents effectivement uploadés en test, 7 dossiers de review) mais les
 -- champs qui constituent des données à caractère personnel identifiantes ont
 -- été remplacés par des valeurs neutres avant export, car ce fichier est
