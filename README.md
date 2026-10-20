@@ -2,7 +2,7 @@
 
 ## Objectif
 
-Application web interne destinée à l'équipe Fraude/KYC pour l'analyse
+Dans le cadre de mon alternance au sein de l'équipe fraude chez betclic, j'ai pensé à une application web interne destinée à l'équipe Fraude/KYC pour l'analyse
 automatique de documents d'identité et bancaires : création de dossiers de
 review, upload de documents, analyse automatique (OCR, lecture de la zone
 MRZ, classification du type de document, détection de flou, scoring de
